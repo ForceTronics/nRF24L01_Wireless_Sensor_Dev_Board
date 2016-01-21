@@ -11,7 +11,6 @@ RF24Network network(radio); //Create object to use nRF24L01 in mesh network
 int thisNode; //address of this router or end device
 const uint16_t rXNode = 00; //address of coordinator
 float iREF; //Actual measured voltage value of the internal 1.1V reference
-float bVoltDivide; //battery monitor cal factor
 bool batShutdown = false; //tracks if battery is good or dead
 bool timer = true; //Used while in router mode to set transmit interval
 byte mMode; //used to track whether in end device mode or router mode
@@ -54,9 +53,9 @@ void loop(void)
     
     if(timer) { //If in router mode this used to track when it is time to transmit again
       //create packet to transmit. First argument calculates temperature, second gets ADC reading from A2, third gives state of battery
-      payload_t payload = { calculateTempF(convertToVolt(iREF, averageADCReadings(A2,20))), averageADCReadings(A0,20), checkBatteryVolt(A1)};
+      payload_t payload = { calculateTempF(convertToVolt(iREF, averageADCReadings(A0,20))), averageADCReadings(A1,20), checkBatteryVolt()};
       RF24NetworkHeader header(rXNode); //Create transmit header. This goes in transmit packet to help route it where it needs to go, in this case it is the coordinator
-      //send data onto network and make sure it gets there
+      //send data onto network and make sure it gets there1
       if (network.write(header,&payload,sizeof(payload))) {
         digitalWrite(7,LOW); //transmit was successful so make sure status LED is off
       }
@@ -148,24 +147,21 @@ void checkNodeAddress() {
   byte tInterval; //set the transmit time interval
   byte mode; //set to router or end device mode
   float ref; //set measured internal reference value
-  float bDivider; //seting of calibration factor for battery voltage divider
   //The following strings are used by serial monitor more than once so to save memory they are made into variables
-  String enter = "Enter 'Y' for yes or any other character for no:";
-  String invalid = "Invalid entry, default to ";
-  String would = "Would you like to update the ";
+  String enter = F("Enter 'Y' for yes or any other character for no:"); //F() macro tells IDE to store string in flash memory and not SRAM
+  String invalid = F("Invalid entry, default to ");
+  String would = F("Would you like to update the ");
 
   //if this is either the first time the module is used or if pin 8 is connecting to ground enter settings mode
   if(EEPROM.get(0,cAddr)!= 128 || !digitalRead(8)) {
     digitalWrite(7,HIGH); //in settings mode so turn on status LED
     Serial.begin(57600); //start serial communication, need to turn off before using sleep and WDT
     //the following code reads the current settings from EEPROM and puts them in local variables
-    Serial.println("Current settings in EEPROM");
+    Serial.println(F("Current settings in EEPROM"));
     Serial.print("Node address: ");
     Serial.println(EEPROM.get(1,val),OCT);
     Serial.print("Internal ref value: ");
     Serial.println(EEPROM.get(3,ref));
-    Serial.print("Battery volt calibration factor: ");
-    Serial.println(EEPROM.get(7,bDivider));
     Serial.print("Time interval: ");
     Serial.println(getInterval());
     Serial.print("Mode: ");
@@ -175,7 +171,7 @@ void checkNodeAddress() {
     Serial.print("Node Address? ");
     Serial.println(enter);
     if(getAnswer()) {
-      Serial.println("Enter Node address to store in EEPROM");
+      Serial.println(F("Enter Node address to store in EEPROM"));
       while (!Serial.available()) { }
       val = Serial.parseInt();
       if(val >= 0) {
@@ -192,7 +188,7 @@ void checkNodeAddress() {
     Serial.print("internal ref voltage? ");
     Serial.println(enter);
     if(getAnswer()) {
-      Serial.println("Enter internal ref voltage to store in EEPROM");
+      Serial.println(F("Enter internal ref voltage to store in EEPROM"));
       while (!Serial.available()) { }
       ref = Serial.parseFloat();
       if(ref >= 1.0 || ref <= 1.2) { //ADC reference value must be between 1.0 and 1.2
@@ -206,54 +202,37 @@ void checkNodeAddress() {
       }
     }
     Serial.print(would);
-    Serial.print("Battery volt divider value? ");
-    Serial.println(enter);
-    if(getAnswer()) {
-      Serial.println("Enter Battery volt divider value to store in EEPROM");
-      while (!Serial.available()) { }
-      bDivider = Serial.parseFloat();
-      if(bDivider >= 3.2 || bDivider <= 10) {
-        EEPROM.put(7, bDivider);
-      }
-      else {
-        Serial.print(invalid);
-        Serial.println("4.0");
-        bDivider = 4.0;
-        EEPROM.put(7, bDivider);
-      }
-    }
-    Serial.print(would);
     Serial.print("time interval? ");
     Serial.println(enter);
     if(getAnswer()) {
-      Serial.println("Enter: 0 for 1 sec, 1 for 1 min, 2 for 10 min, 3 for 15 min");
+      Serial.println(F("Enter: 0 for 1 sec, 1 for 1 min, 2 for 10 min, 3 for 15 min"));
       while (!Serial.available()) { }
       tInterval = Serial.parseInt();
       if(tInterval >= 0 || tInterval < 4) { //check that entry was valid
-        EEPROM.put(11, tInterval);
+        EEPROM.put(7, tInterval);
       }
       else {
         Serial.print(invalid);
         Serial.println("3");
         tInterval = 3;
-        EEPROM.put(11, tInterval);
+        EEPROM.put(7, tInterval);
       }
     }
     Serial.print(would);
     Serial.print("mode setting? ");
     Serial.println(enter);
     if(getAnswer()) {
-      Serial.println("Enter 0 for end device and 1 for router");
+      Serial.println(F("Enter 0 for end device and 1 for router"));
       while (!Serial.available()) { }
       mode = Serial.parseInt();
       if(mode == 0 || mode == 1) { //check that entry was valid
-        EEPROM.put(12, mode);
+        EEPROM.put(8, mode);
       }
       else {
         Serial.print(invalid);
         Serial.println("0");
         mode = 0;
-        EEPROM.put(12, mode);
+        EEPROM.put(8, mode);
       }
     }
     
@@ -263,8 +242,6 @@ void checkNodeAddress() {
     Serial.println(thisNode,OCT);
     Serial.print("Internal ref voltage: ");
     Serial.println(iREF); 
-    Serial.print("Battery volt divider value: ");
-    Serial.println(bVoltDivide);
     Serial.print("Time interval: ");
     Serial.println(sInterval);
     Serial.print("Mode setting: ");
@@ -285,9 +262,8 @@ void checkNodeAddress() {
 void getEEPROMValues() {
   EEPROM.get(1,thisNode);
   EEPROM.get(3,iREF);
-  EEPROM.get(7,bVoltDivide);
-  EEPROM.get(11,sInterval);
-  EEPROM.get(12,mMode);
+  EEPROM.get(7,sInterval);
+  EEPROM.get(8,mMode);
 }
 
 //Checks if user entered a 'Y' into the serial monitor
@@ -303,7 +279,7 @@ bool getAnswer() {
 String getInterval() {
   byte i;
   String m = " min";
-  EEPROM.get(11,i);
+  EEPROM.get(7,i);
   if(i==0) {
     return "1 sec";
   }
@@ -314,7 +290,7 @@ String getInterval() {
     return ("10"+m);
   }
   else {
-     EEPROM.put(12,i);
+     EEPROM.put(7,i);
     return ("15"+m);
   }
 }
@@ -322,13 +298,13 @@ String getInterval() {
 //gets mode setting from EEPROM and prints it out to user
 String getMode() {
   byte m;
-  EEPROM.get(12,m);
+  EEPROM.get(8,m);
   if(m==1) {
     return "Router";
   }
   else {
     m = 0;
-    EEPROM.put(12,m);
+    EEPROM.put(8,m);
     return "End Device";
   }
 }
@@ -340,7 +316,6 @@ void burn8Readings() {
   for(int i=0; i<8; i++) {
     analogRead(A0);
     analogRead(A1);
-    analogRead(A2);
   }
 }
 
@@ -375,13 +350,32 @@ int averageADCReadings(int aDCpin, int avgCount) {
  return (aDCAvg/avgCount);
 }
 
+//This function uses the known internal reference value of the 328p (~1.1V) to calculate the VCC value which comes from a battery
+//This was leveraged from a great tutorial found at https://code.google.com/p/tinkerit/wiki/SecretVoltmeter?pageId=110412607001051797704
+float fReadVcc() {
+  analogReference(EXTERNAL); //set the ADC reference to AVCC 
+  burn8Readings(); //make 8 readings but don't use them to ensure good reading after ADC reference change 
+  ADMUX = _BV(REFS0) | _BV(MUX3) | _BV(MUX2) | _BV(MUX1);
+  unsigned long start = millis(); //get timer value
+  while ( (start + 3) > millis()); //delay for 3 milliseconds
+  ADCSRA |= _BV(ADSC); // Start ADC conversion
+  while (bit_is_set(ADCSRA,ADSC)); //wait until conversion is complete
+  int result = ADCL; //get first half of result
+  result |= ADCH<<8; //get rest of the result
+  float batVolt = (iREF / result)*1024; //Use the known iRef to calculate battery voltage
+  analogReference(INTERNAL); //set the ADC reference back to internal
+  burn8Readings(); //make 8 readings but don't use them to ensure good reading after ADC reference change 
+  return batVolt;
+}
+
 //This function checks the battery voltage and let's the coordinator know when the battery is getting low
 //If the battery gets too low this will trigger a constant sleep state
-bool checkBatteryVolt(int aPin) {
+bool checkBatteryVolt() {
   float lowBat = 2.6; //voltage value for low battery
   float deadBat = 2.4; //voltage value for dead battery
   //Get ADC reading. Converter to a voltage. Multiple by battery cal factor to get true battery voltage
-  float batVal = convertToVolt(iREF,averageADCReadings(aPin,20))*bVoltDivide;
+  //float batVal = convertToVolt(iREF,averageADCReadings(aPin,20))*bVoltDivide;
+  float batVal = fReadVcc(); //get battery voltage by measuring internal ref with AVCC 
 
   if(batVal < deadBat) { 
     batShutdown = true; //battery is 'dead' the set battery shut down variable
