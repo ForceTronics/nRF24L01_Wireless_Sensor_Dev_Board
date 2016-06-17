@@ -43,6 +43,6 @@ void loop()
     //if this is true transmit failed
 //  }
 //if you want to run serial monitor be sure to do Serial.end() to shut it off so it does not interfer with sleep settings
- // Do not do any long delays in the loop or it will throw off the timing of the transmits, it can also cause problems with routers missing data they had to route from end device
+// Do not do any long delays in the loop or it will throw off the timing of the transmits, it can also cause problems with routers missing data they had to route from end device
  
 }
