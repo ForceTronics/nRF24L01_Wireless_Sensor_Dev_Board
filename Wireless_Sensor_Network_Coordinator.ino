@@ -16,7 +16,6 @@ const uint16_t thisNode = 00;
 struct Payload
 {
   float aDCTemp; //temperature from onboard sensor
-  int aDCopen;  //open ADC port that returns measurement
   bool batState; //bool to communicate battery power level, true is good and false means battery needs to be replaced
 };
 
@@ -46,8 +45,6 @@ void loop(void)
     Serial.println(header.from_node);
     Serial.print("Temperature: ");
     Serial.print(payload.aDCTemp);
-    Serial.print(" Open ADC value: ");
-    Serial.print(payload.aDCopen);
     Serial.print(" Battery status: ");
     Serial.println(payload.batState);
   }
