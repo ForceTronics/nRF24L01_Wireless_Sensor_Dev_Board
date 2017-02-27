@@ -28,6 +28,7 @@ void WSNode::nodeBegin() {
   pinMode(5,OUTPUT); //set to output, connected to interrupt pin of STTS751 temp sensor
   digitalWrite(5,HIGH); //Need this to pull interrupt pin of STTS751 high (it cannot float)
   getSettings(); //Function used for updating and getting module settings from EEPROM
+  if(i2cAddressCheck(sttsAddress, 0x01)) sttsAddress = 0x39; //the STTS751 temp sensor can have two address, this function checks the address and changes it if needed
   setSleepInterval(sInterval);   //Used to set interval between transmits, based on settings data from EEPROM
 }
 
@@ -336,8 +337,8 @@ float WSNode::getSTTS751Temp()
   signed char hi;
 //Because the Address pin is tied to ground the STTS751 address is 0x3B
   Wire.begin(); // initialise the connection
-  hi = i2c_sensor_read_byte(0x3B, 0);
-  lo = i2c_sensor_read_byte(0x3B, 2);
+  hi = i2c_sensor_read_byte(sttsAddress, 0);
+  lo = i2c_sensor_read_byte(sttsAddress, 2);
   Wire.end(); //turn wire off until next reading
   if(tempSetF) {
     if( hi > 0) return convertCtoF(hi + lo * 1.0/256.0);
@@ -368,6 +369,17 @@ unsigned char WSNode::i2c_sensor_read_byte(int deviceaddress, int eeaddress)
     Serial.println(rc);
   } 
   return rdata;
+}
+
+//This function makes a status request to the STTS751 temp sensor using address argument
+//If the function returns a non-zero number then the address is not correct
+int WSNode::i2cAddressCheck(int deviceaddress, int eeaddress) {
+  Wire.begin(); // initialise the connection
+  Wire.beginTransmission(deviceaddress);
+  Wire.write(eeaddress);
+  int resp = Wire.endTransmission();
+  Wire.end(); //turn wire off until next reading
+  return resp;
 }
 
 //used to average multiple ADC values together
