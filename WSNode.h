@@ -79,8 +79,8 @@ public:
   RF24& radio; //reference varaible for RF24 object
   int thisNode = 1; //address of this router or end device
   float iREF = 1.1; //Voltage value of the internal 1.1V reference, measure actual and set it here for better measurement accuracy
-  float lowBat = 2.6; //voltage value for low battery
-  float deadBat = 2.4; //voltage value for dead battery
+  float lowBat = 2.8; //voltage value for low battery
+  float deadBat = 2.6; //voltage value for dead battery
   bool batShutdown = false; //tracks if battery is good or dead
   unsigned char mMode; //used to track whether in end device mode or router mode
   //structure used to hold the payload that is sent to the coordinator. 
@@ -98,6 +98,10 @@ public:
   //timer function that let's the node know when to transmit in router mode
   //function returns true when it is time to transmit
   bool checkTimer();
+
+  //This function makes a status request to the STTS751 temp sensor using address argument
+  //If the function returns a non-zero number then the address is not correct
+  int i2cAddressCheck(int deviceaddress, int eeaddress);
 
   //This function sets the sleep interval timer
   //Choices are 0 = 1 sec, 1 = 1 min (4 sec sleep interval 15), 2 = 10 min (8 sec sleep interval 75), 3 = 15 min (4 sec interval 225), 4 = 60 min (8 sec interval 450)
@@ -136,6 +140,7 @@ public:
   const unsigned short int rXNode = 00; //address of coordinator
   byte wDTInterval; //used for tracking sleep interval
   byte count; //used for tracking sleep interval
+  int sttsAddress = 0x3B; //used to hold I2C address for the STTS751, default is 0x3B
 };
 
 #endif
