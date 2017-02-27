@@ -26,6 +26,7 @@ void setup()
   radio.begin(); //start nRF24L01 communication and control
   //setup network communication, first argument is channel which determines frequency band module communicates on. Second argument is address of this module
   network.begin(90, wNode.thisNode); //Note that wNode.thisNode gets the node setting from EEPROM
+  radio.setPALevel(RF24_PA_LOW); 
   wNode.setTempToF();//set temp measurements for Cel
 }
 
@@ -43,6 +44,6 @@ void loop()
     //if this is true transmit failed
 //  }
 //if you want to run serial monitor be sure to do Serial.end() to shut it off so it does not interfer with sleep settings
-// Do not do any long delays in the loop or it will throw off the timing of the transmits, it can also cause problems with routers missing data they had to route from end device
+ // Do not do any long delays in the loop or it will throw off the timing of the transmits, it can also cause problems with routers missing data they had to route from end device
  
 }
